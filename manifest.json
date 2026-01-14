@@ -1,0 +1,23 @@
+
+{
+  "name": "AuditLine",
+  "short_name": "AuditLine",
+  "description": "Enterprise Financial Ledger & Audit Management",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#E31B23",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/initials/svg?seed=AL&backgroundColor=e31b23",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/initials/svg?seed=AL&backgroundColor=e31b23",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
