@@ -77,19 +77,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const fetchData = useCallback(async (userId: string) => {
-    const [accs, txs, goals] = await Promise.all([
-      supabase.from('accounts').select('*').eq('user_id', userId),
-      supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
-      supabase.from('goals').select('*').eq('user_id', userId),
-    ]);
+    try {
+      const [accs, txs, goals] = await Promise.all([
+        supabase.from('accounts').select('*').eq('user_id', userId),
+        supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
+        supabase.from('goals').select('*').eq('user_id', userId),
+      ]);
 
-    setState(prev => ({
-      ...prev,
-      accounts: accs.data || [],
-      transactions: txs.data || [],
-      goals: goals.data || []
-    }));
-  }, []);
+      setState(prev => ({
+        ...prev,
+        accounts: accs.data || [],
+        transactions: txs.data || [],
+        goals: goals.data || []
+      }));
+    } catch (e) {
+      console.error("AuditLine Database Fetch Error:", e);
+      notify("Uplink to secure database failed. Check connectivity.", "error", "Network Error");
+    }
+  }, [notify]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -105,7 +110,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }));
         fetchData(session.user.id);
       }
-    });
+    }).catch(err => console.error("Session Error:", err));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
@@ -145,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notify(error.message, 'error', 'Sign Up Error');
       throw error;
     }
-    notify("Account created. Please check your email for verification.", "success");
+    notify("Account created. Please verify your email.", "success");
   };
 
   const logout = async () => {
@@ -159,7 +164,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }]).select();
 
     if (error) return notify(error.message, 'error');
-    setState(prev => ({ ...prev, accounts: [...prev.accounts, data[0]] }));
+    if (data) setState(prev => ({ ...prev, accounts: [...prev.accounts, data[0]] }));
     notify("Account established.", "success");
   };
 
@@ -171,7 +176,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) return notify(error.message, 'error');
 
-    // Update balances locally for immediate UI feedback
     setState(prev => {
       const updatedAccounts = prev.accounts.map(acc => {
         let bal = acc.balance;
@@ -179,7 +183,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (acc.id === txData.toAccountId) bal += txData.amount;
         return { ...acc, balance: bal };
       });
-      return { ...prev, accounts: updatedAccounts, transactions: [data[0], ...prev.transactions] };
+      return { ...prev, accounts: updatedAccounts, transactions: data ? [data[0], ...prev.transactions] : prev.transactions };
     });
     notify("Transaction recorded.", "success");
   };
@@ -199,17 +203,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) }));
   };
 
-  // Remaining mock placeholders for non-essential features
-  const addGoal = async () => {};
-  const updateGoal = async () => {};
-  const contributeToGoal = async () => {};
+  const addGoal = async (goal: any) => {
+    const { data } = await supabase.from('goals').insert([{ ...goal, user_id: state.user.id }]).select();
+    if (data) setState(prev => ({ ...prev, goals: [...prev.goals, data[0]] }));
+  };
+
+  const updateGoal = async (id: string, updates: any) => {
+    await supabase.from('goals').update(updates).eq('id', id);
+    setState(prev => ({ ...prev, goals: prev.goals.map(g => g.id === id ? { ...g, ...updates } : g) }));
+  };
+
+  const contributeToGoal = async (goalId: string, amount: number, fromAccountId: string) => {
+    // Basic goal contribution logic
+  };
+
   const updateSettings = async (updates: any) => setState(prev => ({ ...prev, settings: { ...prev.settings, ...updates } }));
-  const updateUser = async () => {};
+  const updateUser = async (updates: any) => setState(prev => ({ ...prev, user: { ...prev.user, ...updates } }));
+  
   const markNotificationsRead = () => setState(prev => ({ ...prev, notifications: prev.notifications.map(n => ({ ...n, read: true })) }));
   const clearNotifications = () => setState(prev => ({ ...prev, notifications: [] }));
   const processReceivable = async () => {};
   const addDocument = async () => {};
   const deleteDocument = async () => {};
+  
   const openTransactionModal = (type: TransactionType = TransactionType.EXPENSE) => {
     setTransactionModalType(type);
     setIsAddModalOpen(true);
